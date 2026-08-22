@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en" data-theme="dark"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -313,13 +314,13 @@
 
   <div class="foot">
     <div class="meta skeleton" id="meta">Updated recently</div>
-    <a class="play" id="play" href="file:///C:/Users/georg/Downloads/roblox-embed-roproxy_1.html#" target="_blank" rel="noopener">Play</a>
+    <a class="play" id="play" href="file:///C:/Users/georg/Downloads/index.html#" target="_blank" rel="noopener">Play</a>
   </div>
 </div>
 
 <div class="card error" id="errorCard">
   <div class="error-t" id="errTitle">No game ID set</div>
-  <div class="error-d" id="errBody">Add <code>?placeId=12312</code> to the iframe URL.</div>
+  <div class="error-d" id="errBody">Add <code>?placeId=1886551928</code> to the iframe URL.</div>
 </div>
 
 <script>
@@ -331,11 +332,10 @@
   const HOST_THUMBNAILS = "https://thumbnails.roproxy.com";
   const HOST_APIS       = "https://apis.roproxy.com";
 
-  // Every visitor polls independently and there's no cache in front, so this
-  // is slower than the worker build on purpose — it keeps you inside
-  // RoProxy's shared rate limit.
+
   const REFRESH_MS = 90000;
   const MAX_POINTS = 40;
+
 
   const qs = new URLSearchParams(location.search);
   const placeId    = (qs.get("placeId")    || "").replace(/\D/g, "");
@@ -373,10 +373,12 @@
     return new Date(iso).toLocaleDateString(undefined, { month: "short", year: "numeric" });
   }
 
-
+  /* ------------------------------------------------------------------ *
+   * 4. Fetch + render
+   * ------------------------------------------------------------------ */
   async function load() {
     if (!placeId && !universeId) {
-      return fail("No game ID set", 'Add <code>?placeId=12312</code> to the iframe URL.');
+      return fail("No game ID set", 'Add <code>?placeId=1886551928</code> to the iframe URL.');
     }
 
     try {
