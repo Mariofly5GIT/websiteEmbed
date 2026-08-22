@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roblox live players</title>
+<style>
+  :root {
+    --ink:        #0B1020;
+    --panel:      #111A2E;
+    --panel-2:    #17223A;
+    --line:       #24314F;
+    --text:       #EAF0FB;
+    --text-dim:   #8595B5;
+    --data:       #3B9CFF;
+    --live:       #FFB020;
+    --radius:     14px;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"] {
+    --ink:      #FFFFFF;
+    --panel:    #FFFFFF;
+    --panel-2:  #F4F7FC;
+    --line:     #E1E8F4;
+    --text:     #0B1020;
+    --text-dim: #5C6C8C;
+    --data:     #0A73D6;
+    --live:     #C77700;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: transparent; }
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .card {
+    position: relative;
+    overflow: hidden;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    max-width: 520px;
+  }
+  :root[data-theme="light"] .card { box-shadow: 0 1px 3px rgba(11,16,32,.07); }
+
+  /* ---- header ---- */
+  .head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .head-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: .16;
+    filter: saturate(1.1);
+  }
+  :root[data-theme="light"] .head-bg { opacity: .10; }
+  .head-scrim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--panel) 30%, transparent 120%);
+  }
+  .head > .icon, .head > .titles, .head > .live { position: relative; z-index: 1; }
+
+  .icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    flex: 0 0 auto;
+    background: var(--panel-2);
+    object-fit: cover;
+  }
+  .titles { min-width: 0; flex: 1 1 auto; }
+  .name {
+    font-size: 15px;
+    font-weight: 650;
+    letter-spacing: -.01em;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .by {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .verified { color: var(--data); font-weight: 700; }
+
+  .live {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--live);
+  }
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--live);
+    box-shadow: 0 0 0 0 var(--live);
+    animation: pulse 2.4s ease-out infinite;
+  }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255,176,32,.55); }
+    70%  { box-shadow: 0 0 0 8px rgba(255,176,32,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,176,32,0); }
+  }
+  .live[data-state="stale"] { color: var(--text-dim); }
+  .live[data-state="stale"] .dot { background: var(--text-dim); animation: none; }
+
+  /* ---- hero ---- */
+  .hero {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 16px 16px;
+  }
+  .count {
+    font-family: var(--mono);
+    font-size: 46px;
+    font-weight: 700;
+    letter-spacing: -.045em;
+    line-height: .92;
+    font-variant-numeric: tabular-nums;
+    transition: color .5s ease;
+  }
+  .count.bump { color: var(--data); transition: none; }
+  .count-label {
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .delta {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 10px;
+    letter-spacing: .08em;
+    color: var(--text-dim);
+  }
+  .delta[data-dir="up"]   { color: #2EBD85; }
+  .delta[data-dir="down"] { color: #E4635A; }
+
+  .spark { flex: 0 0 auto; width: 148px; }
+  .spark svg { display: block; width: 100%; height: 44px; overflow: visible; }
+  .spark-note {
+    margin-top: 8px;
+    text-align: right;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* ---- stats ---- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--line);
+    background: var(--panel-2);
+  }
+  .stat {
+    padding: 12px 10px;
+    border-right: 1px solid var(--line);
+    min-width: 0;
+  }
+  .stat:last-child { border-right: 0; }
+  .stat-v {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 650;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .stat-k {
+    margin-top: 4px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ---- footer ---- */
+  .foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 11px 16px;
+    border-top: 1px solid var(--line);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .play {
+    flex: 0 0 auto;
+    display: inline-block;
+    padding: 7px 14px;
+    border-radius: 8px;
+    background: var(--data);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 650;
+    text-decoration: none;
+    letter-spacing: -.01em;
+  }
+  .play:hover { filter: brightness(1.08); }
+  .play:focus-visible,
+  a:focus-visible { outline: 2px solid var(--live); outline-offset: 2px; }
+
+  /* ---- loading / error ---- */
+  .skeleton { color: transparent !important; position: relative; }
+  .skeleton::after {
+    content: "";
+    position: absolute; inset: 0;
+    border-radius: 5px;
+    background: var(--panel-2);
+    animation: breathe 1.6s ease-in-out infinite;
+  }
+  :root[data-theme="light"] .skeleton::after { background: #E8EEF8; }
+  @keyframes breathe { 0%,100% { opacity: .45; } 50% { opacity: .9; } }
+
+  .error { padding: 20px 16px; }
+  .error-t { font-size: 13px; font-weight: 650; margin-bottom: 6px; }
+  .error-d { font-size: 12px; color: var(--text-dim); line-height: 1.5; }
+  .error-d code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--panel-2);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  [hidden] { display: none !important; }
+
+  @media (max-width: 400px) {
+    .spark { display: none; }
+    .count { font-size: 40px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat:nth-child(2) { border-right: 0; }
+    .stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="card" id="card" hidden="">
+  <div class="head">
+    <div class="head-bg" id="headBg" hidden=""></div>
+    <div class="head-scrim" id="headScrim" hidden=""></div>
+    <img class="icon" id="icon" alt="" width="44" height="44">
+    <div class="titles">
+      <div class="name skeleton" id="name">Loading game</div>
+      <div class="by skeleton" id="by">by someone</div>
+    </div>
+    <div class="live" id="live" data-state="live"><span class="dot"></span>Live</div>
+  </div>
+
+  <div class="hero">
+    <div>
+      <div class="count skeleton" id="count" aria-live="polite">0</div>
+      <div class="count-label">Playing now<span class="delta" id="delta"></span></div>
+    </div>
+    <div class="spark" id="spark" hidden="">
+      <svg viewBox="0 0 148 44" preserveAspectRatio="none" role="img" aria-label="Player count since page load">
+        <defs>
+          <lineargradient id="fade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--data)" stop-opacity=".28"></stop>
+            <stop offset="100%" stop-color="var(--data)" stop-opacity="0"></stop>
+          </lineargradient>
+        </defs>
+        <path id="sparkFill" fill="url(#fade)"></path>
+        <path id="sparkLine" fill="none" stroke="var(--data)" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"></path>
+        <circle id="sparkDot" r="2.5" fill="var(--data)"></circle>
+      </svg>
+      <div class="spark-note" id="sparkNote"></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-v skeleton" id="visits">0</div><div class="stat-k">Visits</div></div>
+    <div class="stat"><div class="stat-v skeleton" id="favorites">0</div><div class="stat-k">Favorites</div></div>
+    <div class="stat"><div class="stat-v skeleton" id="rating">0</div><div class="stat-k">Rating</div></div>
+    <div class="stat"><div class="stat-v skeleton" id="cap">0</div><div class="stat-k">Server cap</div></div>
+  </div>
+
+  <div class="foot">
+    <div class="meta skeleton" id="meta">Updated recently</div>
+    <a class="play" id="play" href="file:///C:/Users/georg/Downloads/roblox-embed-roproxy_1.html#" target="_blank" rel="noopener">Play</a>
+  </div>
+</div>
+
+<div class="card error" id="errorCard">
+  <div class="error-t" id="errTitle">No game ID set</div>
+  <div class="error-d" id="errBody">Add <code>?placeId=12312</code> to the iframe URL.</div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+
+  const HOST_GAMES      = "https://games.roproxy.com";
+  const HOST_THUMBNAILS = "https://thumbnails.roproxy.com";
+  const HOST_APIS       = "https://apis.roproxy.com";
+
+  // Every visitor polls independently and there's no cache in front, so this
+  // is slower than the worker build on purpose — it keeps you inside
+  // RoProxy's shared rate limit.
+  const REFRESH_MS = 90000;
+  const MAX_POINTS = 40;
+
+  const qs = new URLSearchParams(location.search);
+  const placeId    = (qs.get("placeId")    || "").replace(/\D/g, "");
+  const universeId = (qs.get("universeId") || "").replace(/\D/g, "");
+  const theme      = qs.get("theme") || "auto";
+
+  const prefersLight = matchMedia("(prefers-color-scheme: light)").matches;
+  document.documentElement.dataset.theme =
+    theme === "auto" ? (prefersLight ? "light" : "dark") : theme;
+
+  const $ = id => document.getElementById(id);
+  const series = [];
+  let previous = null;
+  let timer = null;
+
+
+  const full    = new Intl.NumberFormat(undefined);
+  const compact = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+
+  function ago(iso) {
+    if (!iso) return null;
+    const secs = (Date.now() - new Date(iso).getTime()) / 1000;
+    const units = [["year", 31536000], ["month", 2592000], ["day", 86400], ["hour", 3600], ["minute", 60]];
+    for (const [unit, size] of units) {
+      if (secs >= size) {
+        const n = Math.floor(secs / size);
+        return `${n} ${unit}${n > 1 ? "s" : ""} ago`;
+      }
+    }
+    return "just now";
+  }
+
+  function monthYear(iso) {
+    if (!iso) return null;
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  }
+
+
+  async function load() {
+    if (!placeId && !universeId) {
+      return fail("No game ID set", 'Add <code>?placeId=12312</code> to the iframe URL.');
+    }
+
+    try {
+      const uid = universeId || await resolveUniverse(placeId);
+
+      const [details, votes, icon, thumb] = await Promise.all([
+        getJSON(`${HOST_GAMES}/v1/games?universeIds=${uid}`),
+        getJSON(`${HOST_GAMES}/v1/games/votes?universeIds=${uid}`),
+        getJSON(`${HOST_THUMBNAILS}/v1/games/icons?universeIds=${uid}` +
+                `&size=512x512&format=Png&isCircular=false`),
+        getJSON(`${HOST_THUMBNAILS}/v1/games/multiget/thumbnails?universeIds=${uid}` +
+                `&size=768x432&format=Png&countPerUniverse=1`),
+      ]);
+
+      const g = details?.data?.[0];
+      if (!g) return fail("No game found", `Nothing came back for ID <code>${uid}</code>.`);
+
+      render(merge(g, votes, icon, thumb));
+      setLive(true);
+    } catch (err) {
+      if (series.length) {
+        setLive(false);        // keep the last good numbers on screen
+        return;
+      }
+      const msg = String(err?.message || err);
+      if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) {
+        fail("RoProxy didn't allow this request",
+          "The browser blocked the response, which means RoProxy isn't sending " +
+          "CORS headers for this origin. Open the console for the exact error. " +
+          "If it's a CORS failure, this page needs a proxy you control instead.");
+      } else {
+        fail("Couldn't load this game", escapeHtml(msg));
+      }
+    }
+  }
+
+  async function resolveUniverse(pid) {
+    const d = await getJSON(`${HOST_APIS}/universes/v1/places/${pid}/universe`);
+    if (!d?.universeId) throw new Error(`Place ${pid} has no universe.`);
+    return d.universeId;
+  }
+
+  async function getJSON(url) {
+    const r = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!r.ok) throw new Error(`${new URL(url).hostname} returned ${r.status}`);
+    return r.json();
+  }
+
+  // Reshape the four responses into the single object render() expects.
+  function merge(g, votes, icon, thumb) {
+    const v = votes?.data?.[0] || {};
+    const up = v.upVotes ?? 0;
+    const down = v.downVotes ?? 0;
+    const total = up + down;
+
+    const ic = icon?.data?.[0];
+    const th = thumb?.data?.[0]?.thumbnails?.[0];
+
+    return {
+      name: g.name,
+      creator: {
+        name: g.creator?.name ?? "Unknown",
+        verified: !!g.creator?.hasVerifiedBadge,
+      },
+      playing: g.playing ?? 0,
+      visits: g.visits ?? 0,
+      maxPlayers: g.maxPlayers ?? null,
+      favorites: g.favoritedCount ?? 0,
+      ratingPercent: total > 0 ? Math.round((up / total) * 100) : null,
+      genre: g.genre ?? null,
+      created: g.created ?? null,
+      updated: g.updated ?? null,
+      iconUrl: ic?.state === "Completed" ? ic.imageUrl : null,
+      thumbnailUrl: th?.state === "Completed" ? th.imageUrl : null,
+      playUrl: `https://www.roblox.com/games/${g.rootPlaceId}/`,
+    };
+  }
+
+  function render(d) {
+    document.querySelectorAll(".skeleton").forEach(el => el.classList.remove("skeleton"));
+
+    $("name").textContent = d.name || "Untitled game";
+    $("by").innerHTML = "by " + escapeHtml(d.creator?.name || "Unknown") +
+      (d.creator?.verified ? ' <span class="verified" title="Verified">✓</span>' : "");
+    document.title = `${d.name} — ${full.format(d.playing)} playing`;
+
+    if (d.iconUrl) { $("icon").src = d.iconUrl; $("icon").alt = `${d.name} icon`; }
+    if (d.thumbnailUrl) {
+      $("headBg").style.backgroundImage = `url("${d.thumbnailUrl}")`;
+      $("headBg").hidden = false;
+      $("headScrim").hidden = false;
+    }
+
+    // Count, with a brief flash and a delta when it moves.
+    const el = $("count");
+    el.textContent = full.format(d.playing);
+    if (previous !== null && d.playing !== previous) {
+      const diff = d.playing - previous;
+      const dEl = $("delta");
+      dEl.textContent = `${diff > 0 ? "+" : "−"}${full.format(Math.abs(diff))}`;
+      dEl.dataset.dir = diff > 0 ? "up" : "down";
+      el.classList.add("bump");
+      setTimeout(() => el.classList.remove("bump"), 60);
+    }
+    previous = d.playing;
+
+    $("visits").textContent    = compact.format(d.visits);
+    $("favorites").textContent = compact.format(d.favorites);
+    $("rating").textContent    = d.ratingPercent === null ? "—" : d.ratingPercent + "%";
+    $("cap").textContent       = d.maxPlayers ?? "—";
+
+    const bits = [];
+    if (d.updated) bits.push("Updated " + ago(d.updated));
+    if (d.created) bits.push("Created " + monthYear(d.created));
+    if (d.genre && d.genre !== "All") bits.push(d.genre);
+    $("meta").textContent = bits.join(" · ");
+
+    $("play").href = d.playUrl;
+
+    pushPoint(d.playing);
+    postHeight();
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 5. Sparkline — builds from real polls while the page stays open
+   * ------------------------------------------------------------------ */
+  function pushPoint(value) {
+    series.push({ t: Date.now(), v: value });
+    if (series.length > MAX_POINTS) series.shift();
+    if (series.length < 2) return;
+
+    const W = 148, H = 44, PAD = 4;
+    const values = series.map(p => p.v);
+    const min = Math.min(...values), max = Math.max(...values);
+    const span = max - min || 1;
+    const stepX = W / (series.length - 1);
+
+    const pts = series.map((p, i) => [
+      i * stepX,
+      PAD + (1 - (p.v - min) / span) * (H - PAD * 2),
+    ]);
+
+    const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+    $("sparkLine").setAttribute("d", line);
+    $("sparkFill").setAttribute("d", `${line} L${W},${H} L0,${H} Z`);
+    const last = pts[pts.length - 1];
+    $("sparkDot").setAttribute("cx", last[0]);
+    $("sparkDot").setAttribute("cy", last[1]);
+
+    const since = new Date(series[0].t).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    $("sparkNote").textContent = `Since ${since}`;
+    $("spark").hidden = false;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 6. State helpers
+   * ------------------------------------------------------------------ */
+  function setLive(ok) {
+    const el = $("live");
+    el.dataset.state = ok ? "live" : "stale";
+    el.lastChild.nodeValue = ok ? "Live" : "Stale";
+  }
+
+  function fail(title, bodyHtml) {
+    $("card").hidden = true;
+    $("errTitle").textContent = title;
+    $("errBody").innerHTML = bodyHtml;
+    $("errorCard").hidden = false;
+    postHeight();
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // Let the parent page size the iframe to fit.
+  function postHeight() {
+    const h = document.documentElement.scrollHeight;
+    parent.postMessage({ type: "roblox-embed:height", height: h }, "*");
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 7. Polling — pause when the tab is hidden so we don't burn requests
+   * ------------------------------------------------------------------ */
+  function start() { stop(); timer = setInterval(load, REFRESH_MS); }
+  function stop()  { if (timer) clearInterval(timer); timer = null; }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { stop(); }
+    else { load(); start(); }
+  });
+  addEventListener("resize", postHeight);
+
+  load();
+  start();
+})();
+</script>
+
+
+</body></html>
